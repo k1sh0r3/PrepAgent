@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PrepAgent — sparring room for interviews</title>
+<meta name="description" content="PrepAgent: an AI interview-prep agent. Researches the company, grills you on your resume, scores your answers, remembers your weak areas. 100% client-side.">
+<link rel="stylesheet" href="assets/style.css?v=1">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
+</head>
+<body>
+<header class="site-header">
+  <div class="wrap">
+    <div class="brand"><span class="logo" aria-hidden="true">🥋</span> PrepAgent <span class="sub">interview dojo</span></div>
+    <p class="tagline">Research the company. Defend your resume. Score every round. No keys required.</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- SETUP -->
+  <section id="screen-setup" class="screen active">
+    <h2>Set up your sparring session</h2>
+    <div class="grid2">
+      <div class="card">
+        <h3>1 · Your resume</h3>
+        <input type="file" id="resume-file" accept=".pdf,.docx,.txt,.md">
+        <textarea id="resume-text" rows="7" placeholder="…or paste your resume text here"></textarea>
+      </div>
+      <div class="card">
+        <h3>2 · The job description</h3>
+        <textarea id="jd-text" rows="7" placeholder="Paste the JD — PrepAgent reads it for round hints and keyword weighting"></textarea>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3>3 · Company <span class="dim">(optional)</span></h3>
+        <input type="text" id="company-input" placeholder="e.g. Anthropic">
+        <p class="dim small">Keyless Wikipedia briefing. No key, no account.</p>
+      </div>
+      <div class="card">
+        <h3>4 · Session config</h3>
+        <label>Round type
+          <select id="round-select">
+            <option value="mixed">Mixed — a bit of everything</option>
+            <option value="behavioral">Behavioral</option>
+            <option value="ml-fundamentals">ML Fundamentals</option>
+            <option value="ml-system-design">ML System Design</option>
+            <option value="resume-deep-dive">Resume Deep-Dive</option>
+            <option value="evals-guardrails">Evals &amp; Guardrails</option>
+          </select>
+        </label>
+        <label>Difficulty
+          <select id="difficulty-select">
+            <option value="junior">Junior — gentler questions, guiding follow-ups</option>
+            <option value="mid" selected>Mid-level — the standard gauntlet</option>
+            <option value="senior">Senior — sharper questions, probing follow-ups</option>
+          </select>
+        </label>
+        <label>Questions
+          <select id="count-select">
+            <option value="5">5 — quick spar</option>
+            <option value="8" selected>8 — full round</option>
+            <option value="10">10 — gauntlet</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" id="timer-check"> Timer per question</label>
+        <label>Minutes per question
+          <input type="number" id="timer-mins" value="2" min="1" max="10" style="max-width:90px">
+        </label>
+        <label class="check"><input type="checkbox" id="star-check"> STAR scaffolding hints (behavioral rounds)</label>
+      </div>
+    </div>
+    <div class="card">
+      <h3>5 · Extra research <span class="dim">(optional)</span></h3>
+      <textarea id="paste-research" rows="4" placeholder="Paste anything useful — a news article, an interview report from Glassdoor/Reddit, a second JD. Woven into AI question generation and shown in your briefing."></textarea>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3>6 · AI upgrade <span class="dim">(optional, BYOK)</span></h3>
+        <label>Provider
+          <select id="llm-provider">
+            <option value="none">None — deterministic mode</option>
+            <option value="openai">OpenAI</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="groq">Groq</option>
+          </select>
+        </label>
+        <label>API key
+          <input type="password" id="llm-key" placeholder="Select a provider first" autocomplete="off">
+        </label>
+        <div class="actions">
+          <button id="btn-key-save" class="btn">Save key</button>
+          <button id="btn-key-clear" class="btn ghost">Clear</button>
+        </div>
+        <p id="key-status" class="dim small" role="status"></p>
+        <p class="dim small">Unlocks resume-specific AI questions + an AI judge scored side-by-side with the heuristic one. Keys never leave this browser.</p>
+      </div>
+      <div class="card">
+        <h3>7 · Fresh intel <span class="dim">(optional, Tavily BYOK)</span></h3>
+        <label>Tavily API key
+          <input type="password" id="tavily-key" placeholder="tvly-…" autocomplete="off">
+        </label>
+        <div class="actions">
+          <button id="btn-tavily-save" class="btn">Save key</button>
+          <button id="btn-tavily-clear" class="btn ghost">Clear</button>
+        </div>
+        <p id="tavily-status" class="dim small" role="status"></p>
+        <p class="dim small">Adds recent company news + interview reports to your briefing. Free tier works.</p>
+      </div>
+    </div>
+    <details class="card">
+      <summary><b>Question banks</b> <span class="dim small">— read-only · flag bad questions to exclude them</span></summary>
+      <div id="bank-viewer-body"></div>
+    </details>
+    <div class="actions">
+      <button id="btn-sample" class="btn ghost">⚡ One-click sample session</button>
+      <button id="btn-start" class="btn primary">Research &amp; build my session →</button>
+    </div>
+    <p class="dim small">Shortcuts during interviews: <kbd>N</kbd> next · <kbd>F</kbd> flag question (not while typing).</p>
+    <p id="setup-status" class="status" role="status"></p>
+  </section>
+
+  <!-- BRIEFING -->
+  <section id="screen-briefing" class="screen">
+    <h2>Briefing</h2>
+    <div id="briefing-body"></div>
+  </section>
+
+  <!-- INTERVIEW -->
+  <section id="screen-interview" class="screen">
+    <div class="q-meta">
+      <span id="q-progress" class="dim"></span>
+      <span id="q-category" class="tag"></span>
+      <span id="q-timer" class="timer" style="display:none"></span>
+    </div>
+    <h2 id="q-text" class="question"></h2>
+    <p id="q-followup-note" class="dim"></p>
+    <div id="star-hints" class="star-hints" style="display:none"></div>
+    <textarea id="answer-box" rows="8" placeholder="Answer like you're in the room — specific, structured, quantified."></textarea>
+    <div class="actions">
+      <button id="btn-voice" class="btn">🎤 Speak answer</button>
+      <button id="btn-submit-answer" class="btn primary">Submit answer</button>
+      <button id="btn-flag" class="btn ghost">⚑ Flag bad question</button>
+    </div>
+    <div id="score-panel" class="card" style="display:none"></div>
+  </section>
+
+  <!-- REPORT -->
+  <section id="screen-report" class="screen">
+    <h2>Report card</h2>
+    <div id="report-body"></div>
+  </section>
+
+</main>
+
+<footer class="wrap dim small">
+  <p>PrepAgent runs 100% in your browser. Your resume never leaves this device. Question banks + heuristic scoring work with zero API keys.</p>
+</footer>
+
+<script src="assets/questions.js?v=2"></script>
+<script src="assets/judge.js?v=1"></script>
+<script src="assets/memory.js?v=2"></script>
+<script src="assets/research.js?v=2"></script>
+<script src="assets/resume.js?v=1"></script>
+<script src="assets/llm.js?v=1"></script>
+<script src="assets/app.js?v=2"></script>
+</body>
+</html>
