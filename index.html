@@ -85,17 +85,27 @@
             <option value="openai">OpenAI</option>
             <option value="gemini">Google Gemini</option>
             <option value="groq">Groq</option>
+            <option value="custom">Custom (OpenAI-compatible)</option>
           </select>
         </label>
         <label>API key
           <input type="password" id="llm-key" placeholder="Select a provider first" autocomplete="off">
         </label>
+        <div id="custom-fields" hidden>
+          <label>Base URL
+            <input type="url" id="custom-base" placeholder="https://openrouter.ai/api/v1" autocomplete="off" spellcheck="false">
+          </label>
+          <label>Model
+            <input type="text" id="custom-model" placeholder="e.g. deepseek/deepseek-chat" autocomplete="off" spellcheck="false">
+          </label>
+          <p class="dim small">Any OpenAI-compatible endpoint: OpenRouter, DeepSeek, Together, Ollama, LM Studio… For keyless local servers, any value in the key field works.</p>
+        </div>
         <div class="actions">
           <button id="btn-key-save" class="btn">Save key</button>
           <button id="btn-key-clear" class="btn ghost">Clear</button>
         </div>
         <p id="key-status" class="dim small" role="status"></p>
-        <p class="dim small">Unlocks resume-specific AI questions + an AI judge scored side-by-side with the heuristic one. Keys never leave this browser.</p>
+        <p class="dim small">Unlocks resume-specific AI questions + an AI judge scored side-by-side with the heuristic one. Custom covers any OpenAI-compatible API (OpenRouter, DeepSeek, Ollama…). Keys never leave this browser.</p>
       </div>
       <div class="card">
         <h3>7 · Fresh intel <span class="dim">(optional, Tavily BYOK)</span></h3>
@@ -164,7 +174,7 @@
 <script src="assets/memory.js?v=2"></script>
 <script src="assets/research.js?v=2"></script>
 <script src="assets/resume.js?v=1"></script>
-<script src="assets/llm.js?v=1"></script>
-<script src="assets/app.js?v=2"></script>
+<script src="assets/llm.js?v=2"></script>
+<script src="assets/app.js?v=3"></script>
 </body>
 </html>
