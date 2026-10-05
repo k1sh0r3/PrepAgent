@@ -164,10 +164,12 @@
     function refreshKeyUI() {
       var LLM = root.PrepAgent.LLM;
       var prov = $('llm-provider').value;
-      var has = prov && prov !== 'none' ? LLM.hasKey(prov) : false;
+      var isCustom = prov === 'custom';
+      var has = prov && prov !== 'none' ? (isCustom ? LLM.customReady() : LLM.hasKey(prov)) : false;
       $('key-status').textContent = !prov || prov === 'none'
         ? 'No AI provider selected — deterministic mode (question banks + heuristic scoring).'
-        : has ? LLM.PROVIDERS[prov].label + ' key saved ✓ — AI question generation + AI judge unlocked.'
+        : has ? LLM.PROVIDERS[prov].label + ' ready ✓ — AI question generation + AI judge unlocked.'
+        : isCustom ? 'Custom provider needs a key, a base URL, and a model name below.'
         : 'No key saved for ' + LLM.PROVIDERS[prov].label + ' — enter one to unlock AI features.';
       var th = LLM.hasKey('tavily');
       $('tavily-status').textContent = th
@@ -180,6 +182,13 @@
       var prov = $('llm-provider').value;
       LLM.setActiveLLM(prov === 'none' ? null : prov);
       $('llm-key').placeholder = prov && prov !== 'none' ? LLM.PROVIDERS[prov].placeholder : 'Select a provider first';
+      var isCustom = prov === 'custom';
+      $('custom-fields').hidden = !isCustom;
+      if (isCustom) {
+        var cfg = LLM.getCustomConfig();
+        if (!$('custom-base').value) $('custom-base').value = cfg.baseUrl || '';
+        if (!$('custom-model').value) $('custom-model').value = cfg.model || '';
+      }
       refreshKeyUI();
     });
     $('btn-key-save').addEventListener('click', function () {
@@ -188,10 +197,16 @@
       if (!prov || prov === 'none') { setStatus('Pick a provider before saving a key.', true); return; }
       var key = $('llm-key').value.trim();
       if (!key) { setStatus('Paste a key first.', true); return; }
+      if (prov === 'custom') {
+        var baseUrl = $('custom-base').value.trim();
+        var model = $('custom-model').value.trim();
+        if (!baseUrl || !model) { setStatus('Custom provider needs a base URL and a model name.', true); return; }
+        LLM.setCustomConfig({ baseUrl: baseUrl, model: model });
+      }
       LLM.setKey(prov, key);
       $('llm-key').value = '';
       refreshKeyUI();
-      setStatus(LLM.PROVIDERS[prov].label + ' key saved in this browser.');
+      setStatus(LLM.PROVIDERS[prov].label + ' saved in this browser.');
     });
     $('btn-key-clear').addEventListener('click', function () {
       var LLM = root.PrepAgent.LLM;

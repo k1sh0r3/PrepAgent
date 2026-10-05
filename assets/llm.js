@@ -54,6 +54,27 @@
 
   function hasKey(provider) { return !!getKey(provider); }
 
+  /* Custom (OpenAI-compatible) endpoint config: { baseUrl, model }. */
+  function getCustomConfig() {
+    var s = readState();
+    return (s.custom && typeof s.custom === 'object') ? s.custom : {};
+  }
+
+  function setCustomConfig(cfg) {
+    var s = readState();
+    cfg = cfg || {};
+    s.custom = {
+      baseUrl: String(cfg.baseUrl || '').trim().replace(/\/+$/, ''),
+      model: String(cfg.model || '').trim()
+    };
+    writeState(s);
+  }
+
+  function customReady() {
+    var c = getCustomConfig();
+    return !!(getKey('custom') && c.baseUrl && c.model);
+  }
+
   function setActiveLLM(provider) {
     var s = readState();
     s.activeLLM = provider || null;
@@ -137,6 +158,33 @@
       parseResponse: function (data) {
         try { return data.choices[0].message.content; } catch (e) { return null; }
       }
+    },
+    custom: {
+      label: 'Custom (OpenAI-compatible)',
+      model: '',
+      placeholder: 'key — any value works for keyless local servers',
+      buildRequest: function (key, system, user) {
+        var cfg = getCustomConfig();
+        var base = String(cfg.baseUrl || '').replace(/\/+$/, '');
+        var url = /\/chat\/completions$/.test(base) ? base : base + '/chat/completions';
+        var headers = { 'Content-Type': 'application/json' };
+        if (key) headers['Authorization'] = 'Bearer ' + key;
+        return {
+          url: url,
+          headers: headers,
+          body: {
+            model: cfg.model,
+            messages: [
+              { role: 'system', content: system },
+              { role: 'user', content: user }
+            ],
+            temperature: 0.7
+          }
+        };
+      },
+      parseResponse: function (data) {
+        try { return data.choices[0].message.content; } catch (e) { return null; }
+      }
     }
   };
 
@@ -155,6 +203,7 @@
     if (!provider || !PROVIDERS[provider]) return null;
     var key = getKey(provider);
     if (!key) return null;
+    if (provider === 'custom' && !customReady()) return null;
     var impl;
     try { impl = opts.fetchImpl || defaultFetch(); }
     catch (e) { return null; }
@@ -289,6 +338,9 @@
     setKey: setKey,
     getKey: getKey,
     hasKey: hasKey,
+    getCustomConfig: getCustomConfig,
+    setCustomConfig: setCustomConfig,
+    customReady: customReady,
     setActiveLLM: setActiveLLM,
     getActiveLLM: getActiveLLM,
     activeProvider: activeProvider,
