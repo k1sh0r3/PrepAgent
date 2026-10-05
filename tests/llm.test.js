@@ -65,6 +65,60 @@ describe('provider adapters', () => {
   });
 });
 
+describe('custom provider', () => {
+  beforeEach(() => {
+    L.setKey('custom', ''); L.setCustomConfig({ baseUrl: '', model: '' }); L.setActiveLLM(null);
+  });
+
+  it('stores base URL and model', () => {
+    assert.deepEqual(L.getCustomConfig(), { baseUrl: '', model: '' });
+    L.setCustomConfig({ baseUrl: 'https://openrouter.ai/api/v1/', model: 'deepseek/deepseek-chat' });
+    assert.deepEqual(L.getCustomConfig(), { baseUrl: 'https://openrouter.ai/api/v1', model: 'deepseek/deepseek-chat' });
+  });
+
+  it('builds an OpenAI-compatible request with normalized URL', () => {
+    L.setCustomConfig({ baseUrl: 'https://openrouter.ai/api/v1/', model: 'deepseek/deepseek-chat' });
+    const req = L.PROVIDERS.custom.buildRequest('KEY', 'sys', 'user');
+    assert.equal(req.url, 'https://openrouter.ai/api/v1/chat/completions');
+    assert.equal(req.body.model, 'deepseek/deepseek-chat');
+    assert.equal(req.headers['Authorization'], 'Bearer KEY');
+    assert.equal(req.body.messages[0].role, 'system');
+  });
+
+  it('does not double-append /chat/completions', () => {
+    L.setCustomConfig({ baseUrl: 'http://localhost:11434/v1/chat/completions', model: 'llama3' });
+    const req = L.PROVIDERS.custom.buildRequest('k', 's', 'u');
+    assert.equal(req.url, 'http://localhost:11434/v1/chat/completions');
+  });
+
+  it('parses the OpenAI response shape', () => {
+    assert.equal(
+      L.PROVIDERS.custom.parseResponse({ choices: [{ message: { content: 'hi' } }] }),
+      'hi');
+    assert.equal(L.PROVIDERS.custom.parseResponse({}), null, 'malformed -> null');
+  });
+
+  it('chat() needs key + base URL + model (graceful nulls)', async () => {
+    L.setActiveLLM('custom');
+    assert.equal(await L.chat('s', 'u'), null, 'nothing configured');
+    L.setKey('custom', 'k');
+    assert.equal(await L.chat('s', 'u'), null, 'key but no endpoint config');
+    L.setCustomConfig({ baseUrl: 'https://x.test/v1', model: 'm' });
+    const text = await L.chat('s', 'u', {
+      fetchImpl: stubFetch({ choices: [{ message: { content: 'ok' } }] })
+    });
+    assert.equal(text, 'ok');
+  });
+
+  it('customReady reflects full configuration', () => {
+    assert.equal(L.customReady(), false);
+    L.setKey('custom', 'k');
+    assert.equal(L.customReady(), false, 'key alone is not enough');
+    L.setCustomConfig({ baseUrl: 'https://x.test/v1', model: 'm' });
+    assert.equal(L.customReady(), true);
+  });
+});
+
 describe('chat()', () => {
   beforeEach(() => { L.setKey('openai', ''); L.setActiveLLM(null); });
 
